@@ -22,6 +22,12 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LP
                 OutputDebugStringA("WM_ACTIVATEAPP: Deactivated\n");
             }
         } break;
+        case WM_PAINT: {
+            PAINTSTRUCT Paint;
+            HDC DeviceContext = BeginPaint(Window, &Paint);
+            // Here you would typically draw your content
+            EndPaint(Window, &Paint);
+        } break;
         default: {
              OutputDebugStringA("Default case in MainWindowCallback\n");
              Result = DefWindowProcA(Window, Message, WParam, LParam);
