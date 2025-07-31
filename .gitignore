@@ -1,0 +1,68 @@
+# Build output directories
+build/
+bin/
+obj/
+
+# Visual Studio files
+*.suo
+*.user
+*.ncb
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.user
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+*.lib
+*.sbr
+*.pdb
+*.idb
+*.obj
+*.exe
+*.dll
+*.exp
+
+# Visual Studio directories
+.vs/
+Debug/
+Release/
+x64/
+Win32/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Visual Studio Code
+.vscode/
+
+# Common backup files
+*.bak
+*.swp
+*.swo
+
+# Data files that might be large or generated
+data/*.large
+data/*.generated
+
+# Any local configuration files
+local.config
+*.local
