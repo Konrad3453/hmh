@@ -66,3 +66,4 @@ data/*.generated
 # Any local configuration files
 local.config
 *.local
+setup_devenv.bat

@@ -25,7 +25,12 @@ LRESULT CALLBACK MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LP
         case WM_PAINT: {
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
-            // Here you would typically draw your content
+            int X = Paint.rcPaint.left;
+            int Y = Paint.rcPaint.top;
+            int Width = Paint.rcPaint.right - Paint.rcPaint.left;
+            int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
+            PatBlt(DeviceContext, X, Y, Width, Height, WHITENESS);
+
             EndPaint(Window, &Paint);
         } break;
         default: {
@@ -72,5 +77,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         }
     }
 
+
+    else {
+        OutputDebugStringA("Failed to register window class\n");
+    }
     return 0;
 }
