@@ -10,9 +10,9 @@
 struct win32_offscreen_buffer {
   BITMAPINFO Info;
   void *Memory;
-  int Width; // Default width
-  int Height; // Default height
-  int BytesPerPixel = 4;
+  int Width; 
+  int Height; 
+  int BytesPerPixel;
   int Pitch; 
 };
 
@@ -42,6 +42,7 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, i
 
     Buffer->Width = Width;
     Buffer->Height = Height;
+    Buffer->BytesPerPixel = 4;
     Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
     Buffer->Info.bmiHeader.biWidth = Buffer->Width;
     Buffer->Info.bmiHeader.biHeight = -Buffer->Height;
