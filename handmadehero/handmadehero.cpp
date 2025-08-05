@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <Xinput.h>
 #include <dsound.h>
+#include <math.h>
 
 #define internal static
 #define local_persist static
@@ -39,15 +40,53 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 
-internal void Win32InitDSound(void) {
+internal void Win32InitDSound(HWND Window, int32_t BufferSize) {
     //load the library
     HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
     if(DSoundLibrary) {
         // Get the DirectSoundCreate function
         direct_sound_create *DirectSoundCreate = (direct_sound_create *)GetProcAddress(DSoundLibrary, "DirectSoundCreate");
-        DIRECTSOUND *DirectSound;
+        LPDIRECTSOUND DirectSound;
         if(DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0))) {
-
+            WAVEFORMATEX WaveFormat;
+            WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+            WaveFormat.nChannels = 2; // Stereo
+            WaveFormat.nSamplesPerSec = 44100; // Sample rate
+            WaveFormat.wBitsPerSample = 16; // Bits per sample
+            WaveFormat.nBlockAlign = (WaveFormat.wBitsPerSample / 8) * WaveFormat.nChannels;
+            WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
+            WaveFormat.cbSize = 0; // No extra data
+            if(SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY))) {
+                DSBUFFERDESC BufferDescription = {};
+                BufferDescription.dwSize = sizeof(BufferDescription);
+                BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+                
+                LPDIRECTSOUNDBUFFER PrimaryBuffer;
+                if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0))) {
+                    if(SUCCEEDED(PrimaryBuffer->SetFormat(&WaveFormat))) {
+                        OutputDebugStringA("Primary buffer format set successfully\n");
+                    }
+                    else {
+                        // Handle error
+                    }
+        
+                } else {
+                    // Handle error
+                }
+            } else {
+                
+            }
+            DSBUFFERDESC BufferDescription = {};
+            BufferDescription.dwSize = sizeof(BufferDescription);
+            BufferDescription.dwFlags = 0;
+            BufferDescription.dwBufferBytes = BufferSize;
+            BufferDescription.lpwfxFormat = &WaveFormat;
+            LPDIRECTSOUNDBUFFER SecondaryBuffer;
+            if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &SecondaryBuffer, 0))) {
+                OutputDebugStringA("Secondary buffer created successfully\n");
+            } else {
+                // Handle error
+            }
         } else {
             // Handle error
         }
@@ -56,6 +95,53 @@ internal void Win32InitDSound(void) {
 
 
 
+
+internal void Win32FillSoundBuffer(LPDIRECTSOUNDBUFFER SecondaryBuffer, int ByteToLock, int BytesToWrite) {
+    VOID *Region1;
+    DWORD Region1Size;
+    VOID *Region2;
+    DWORD Region2Size;
+    
+    if(SUCCEEDED(SecondaryBuffer->Lock(ByteToLock, BytesToWrite,
+                                      &Region1, &Region1Size,
+                                      &Region2, &Region2Size,
+                                      0))) {
+        // Generate simple sine wave test tone
+        DWORD Region1SampleCount = Region1Size / 4; // 4 bytes per sample (16-bit stereo)
+        int16_t *SampleOut = (int16_t *)Region1;
+        local_persist float tSine = 0.0f;
+        int ToneHz = 256;
+        int WavePeriod = 44100 / ToneHz;
+        
+        for(DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex) {
+            float SineValue = sinf(tSine);
+            int16_t SampleValue = (int16_t)(SineValue * 3000);
+            *SampleOut++ = SampleValue; // Left channel
+            *SampleOut++ = SampleValue; // Right channel
+            
+            tSine += 2.0f * 3.14159265359f / (float)WavePeriod;
+            if(tSine > 2.0f * 3.14159265359f) {
+                tSine -= 2.0f * 3.14159265359f;
+            }
+        }
+        
+        DWORD Region2SampleCount = Region2Size / 4;
+        SampleOut = (int16_t *)Region2;
+        for(DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex) {
+            float SineValue = sinf(tSine);
+            int16_t SampleValue = (int16_t)(SineValue * 3000);
+            *SampleOut++ = SampleValue; // Left channel
+            *SampleOut++ = SampleValue; // Right channel
+            
+            tSine += 2.0f * 3.14159265359f / (float)WavePeriod;
+            if(tSine > 2.0f * 3.14159265359f) {
+                tSine -= 2.0f * 3.14159265359f;
+            }
+        }
+        
+        SecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
+    }
+}
 
 internal void Win32LoadXInput(void) {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
@@ -75,6 +161,7 @@ internal void Win32LoadXInput(void) {
 
 global_variable bool Running;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
+global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 
 internal win32_window_dimension Win32GetWindowDimension(HWND Window) {
     win32_window_dimension Result;
@@ -250,6 +337,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             int XOffset = 0;
             int YOffset = 0;
 
+            HDC DeviceContext = GetDC(Window);
+            Win32InitDSound(Window, 48000 * 2 * 2); // 48kHz, stereo, 16-bit
 
             Running = true;
             MSG Message;
