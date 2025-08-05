@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <Xinput.h>
-
+#include <dsound.h>
 
 #define internal static
 #define local_persist static
@@ -35,6 +35,28 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputGetState XInputGetState_
 #define XInputSetState XInputSetState_
 
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
+
+
+internal void Win32InitDSound(void) {
+    //load the library
+    HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
+    if(DSoundLibrary) {
+        // Get the DirectSoundCreate function
+        direct_sound_create *DirectSoundCreate = (direct_sound_create *)GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+        DIRECTSOUND *DirectSound;
+        if(DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0))) {
+
+        } else {
+            // Handle error
+        }
+    }
+}
+
+
+
+
 internal void Win32LoadXInput(void) {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
     if(!XInputLibrary) {
@@ -46,6 +68,8 @@ internal void Win32LoadXInput(void) {
     if (XInputLibrary) {
         XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
         XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+    } else {
+        // Handle error
     }
 }
 
@@ -159,7 +183,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
                     }
                     
                 }
-                bool AltKeyWasDown = (LParam & (1 << 29));
+                bool AltKeyWasDown = (LParam & (1 << 29)) != 0; // Check if the ALT key was down
                 if(VKCode == VK_F4 && AltKeyWasDown) {
                     Running = false;
                     OutputDebugStringA("Escape key pressed, exiting...\n");
@@ -199,7 +223,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
     WNDCLASSA WindowClass = {};
   
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
-\
+
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
