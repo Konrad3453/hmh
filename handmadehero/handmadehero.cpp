@@ -1,5 +1,7 @@
 #include <windows.h>
 #include <stdint.h>
+#include <Xinput.h>
+
 
 #define internal static
 #define local_persist static
@@ -16,8 +18,38 @@ struct win32_offscreen_buffer {
   int Pitch; 
 };
 
+struct win32_window_dimension {
+    int Width;
+    int Height;
+};
+
+
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+typedef X_INPUT_SET_STATE(x_input_set_state);
+X_INPUT_GET_STATE(XInputGetStateStub) { return 0;}
+X_INPUT_SET_STATE(XInputSetStateStub) { return 0;}
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
+#define XInputGetState XInputGetState_
+#define XInputSetState XInputSetState_
+
+
 global_variable bool Running;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
+
+win32_window_dimension Win32GetWindowDimension(HWND Window) {
+    win32_window_dimension Result;
+    RECT ClientRect;
+    GetClientRect(Window, &ClientRect);
+    Result.Width = ClientRect.right - ClientRect.left;
+    Result.Height = ClientRect.bottom - ClientRect.top;
+    return Result;
+}
+
+
+
 internal void RenderWeirdGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset) {
 
     uint8_t *Row = (uint8_t *)Buffer->Memory;
@@ -59,15 +91,13 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, i
 
 }
 
-internal void Win32DisplayBufferInWindow(HDC DeviceContext, RECT ClientRect,win32_offscreen_buffer Buffer, int X, int Y, int Width, int Height) {
-    int WindowWidth = ClientRect.right - ClientRect.left;
-    int WindowHeight = ClientRect.bottom - ClientRect.top;
+internal void Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight, win32_offscreen_buffer Buffer, int X, int Y, int Width, int Height) {
     StretchDIBits(DeviceContext,
-                  0, 0, Buffer.Width, Buffer.Height,
-                  0, 0, WindowWidth, WindowHeight,
-                  Buffer.Memory,
-               &Buffer.Info,
-                    DIB_RGB_COLORS, SRCCOPY);
+         0, 0, WindowWidth, WindowHeight,
+         0, 0, Buffer.Width, Buffer.Height,
+         Buffer.Memory,
+         &Buffer.Info,
+             DIB_RGB_COLORS, SRCCOPY);
 }
 
 
@@ -80,11 +110,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
             OutputDebugStringA("WM_DESTROY\n");
         } break;
         case WM_SIZE: {
-            RECT ClientRect;
-            GetClientRect(Window, &ClientRect);
-            int Width = ClientRect.right - ClientRect.left;
-            int Height = ClientRect.bottom - ClientRect.top;
-            Win32ResizeDIBSection(&GlobalBackBuffer, Width, Height);
+           
         } break;
         case WM_CLOSE: {
             Running = false;
@@ -104,9 +130,8 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
             int Y = Paint.rcPaint.top;
             int Width = Paint.rcPaint.right - Paint.rcPaint.left;
             int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-            RECT ClientRect;
-            GetClientRect(Window, &ClientRect);
-            Win32DisplayBufferInWindow(DeviceContext, ClientRect, GlobalBackBuffer, X, Y, Width, Height);
+            win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackBuffer, X, Y, Width, Height);
             EndPaint(Window, &Paint);
         } break;
         default: {
@@ -123,6 +148,9 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode) {
 
     WNDCLASSA WindowClass = {};
+  
+    Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
+
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
@@ -162,14 +190,36 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                         TranslateMessage(&Message);
                         DispatchMessageA(&Message);
                     }
+                for(DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ++ControllerIndex) {
+                    XINPUT_STATE ControllerState;
+                    if (XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS) {
+                        XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
+                        bool DPAD_UP = Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
+                        bool DPAD_DOWN = Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                        bool DPAD_LEFT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                        bool DPAD_RIGHT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                        bool A_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_A;
+                        bool B_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_B;
+                        bool X_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_X;
+                        bool Y_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_Y;
+                        bool START_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_START;
+                        bool BACK_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_BACK;
+                        bool LEFT_SHOULDER = Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
+                        bool RIGHT_SHOULDER = Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+
+                        int LX = Pad->sThumbLX;
+                        int LY = Pad->sThumbLY;
+                    } else {
+                        // Controller not connected, handle accordingly
+
+                    }
+                }
                 RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
 
                 HDC DeviceContext = GetDC(Window);
-                RECT ClientRect;
-                GetClientRect(Window, &ClientRect);
-                int WindowWidth = ClientRect.right - ClientRect.left;
-                int WindowHeight = ClientRect.bottom - ClientRect.top;
-                Win32DisplayBufferInWindow(DeviceContext, ClientRect,GlobalBackBuffer,  0, 0, WindowWidth, WindowHeight);
+
+                win32_window_dimension Dimension = Win32GetWindowDimension(Window);
+                Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackBuffer, 0, 0, Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
                 ++XOffset;
