@@ -28,8 +28,8 @@ struct win32_window_dimension {
 #define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
 typedef X_INPUT_GET_STATE(x_input_get_state);
 typedef X_INPUT_SET_STATE(x_input_set_state);
-X_INPUT_GET_STATE(XInputGetStateStub) { return 0;}
-X_INPUT_SET_STATE(XInputSetStateStub) { return 0;}
+X_INPUT_GET_STATE(XInputGetStateStub) { return ERROR_DEVICE_NOT_CONNECTED;}
+X_INPUT_SET_STATE(XInputSetStateStub) { return ERROR_DEVICE_NOT_CONNECTED;}
 global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
 global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputGetState XInputGetState_
@@ -37,6 +37,12 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 
 internal void Win32LoadXInput(void) {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+    if(!XInputLibrary) {
+        XInputLibrary = LoadLibraryA("xinput1_3.dll");
+    } 
+    if (!XInputLibrary) {
+        XInputLibrary = LoadLibraryA("xinput9_1_0.dll");
+    }
     if (XInputLibrary) {
         XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
         XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
@@ -152,7 +158,9 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
                         OutputDebugStringA("Space key released\n");
                     }
                     
-                } else if(VKCode == VK_ESCAPE) {
+                }
+                bool AltKeyWasDown = (LParam & (1 << 29));
+                if(VKCode == VK_F4 && AltKeyWasDown) {
                     Running = false;
                     OutputDebugStringA("Escape key pressed, exiting...\n");
                 }
@@ -191,7 +199,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
     WNDCLASSA WindowClass = {};
   
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
-
+\
     WindowClass.style = CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
