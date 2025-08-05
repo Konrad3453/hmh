@@ -23,7 +23,7 @@ struct win32_window_dimension {
     int Height;
 };
 
-
+// support for get and set states
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 #define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -35,11 +35,18 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputGetState XInputGetState_
 #define XInputSetState XInputSetState_
 
+internal void Win32LoadXInput(void) {
+    HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
+    if (XInputLibrary) {
+        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+    }
+}
 
 global_variable bool Running;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 
-win32_window_dimension Win32GetWindowDimension(HWND Window) {
+internal win32_window_dimension Win32GetWindowDimension(HWND Window) {
     win32_window_dimension Result;
     RECT ClientRect;
     GetClientRect(Window, &ClientRect);
@@ -83,7 +90,7 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, i
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     int BitmapMemorySize = Buffer->BytesPerPixel * Buffer->Width * Buffer->Height;
-   Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
     
     Buffer->Pitch = Width*Buffer->BytesPerPixel;
 
@@ -91,12 +98,12 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, i
 
 }
 
-internal void Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight, win32_offscreen_buffer Buffer, int X, int Y, int Width, int Height) {
+internal void Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight, win32_offscreen_buffer *Buffer, int X, int Y, int Width, int Height) {
     StretchDIBits(DeviceContext,
          0, 0, WindowWidth, WindowHeight,
-         0, 0, Buffer.Width, Buffer.Height,
-         Buffer.Memory,
-         &Buffer.Info,
+         0, 0, Buffer->Width, Buffer->Height,
+         Buffer->Memory,
+         &Buffer->Info,
              DIB_RGB_COLORS, SRCCOPY);
 }
 
@@ -116,6 +123,41 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
             Running = false;
             OutputDebugStringA("WM_CLOSE\n");
         } break;
+        case WM_KEYDOWN:
+        case WM_KEYUP:
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+        {
+            uint32_t VKCode = WParam;
+            bool WasDown = (LParam & (1 << 30)) != 0;  // Check if the high-order bit is set
+            bool IsDown = (LParam & (1 << 31)) == 0; // Check if the low-order bit is clear
+            if (WasDown != IsDown) {
+               
+                if(VKCode == 'W') {
+                OutputDebugStringA("W key pressed\n");
+                } else if(VKCode == 'S') {
+                    OutputDebugStringA("S key pressed\n");
+                } else if(VKCode == 'A') {
+                    OutputDebugStringA("A key pressed\n");
+                } else if(VKCode == 'D') {
+                    OutputDebugStringA("D key pressed\n");
+                } else if(VKCode == 'Q') {
+                    OutputDebugStringA("Q key pressed\n");
+                } else if(VKCode == 'E') {
+                    OutputDebugStringA("E key pressed\n");
+                } else if(VKCode == VK_SPACE) {
+                    if (IsDown) {
+                        OutputDebugStringA("Space key pressed\n");
+                    } else if (WasDown) {
+                        OutputDebugStringA("Space key released\n");
+                    }
+                    
+                } else if(VKCode == VK_ESCAPE) {
+                    Running = false;
+                    OutputDebugStringA("Escape key pressed, exiting...\n");
+                }
+            }
+        } break;
         case WM_ACTIVATEAPP: {
             if (WParam) {
                 OutputDebugStringA("WM_ACTIVATEAPP: Activated\n");
@@ -131,11 +173,10 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
             int Width = Paint.rcPaint.right - Paint.rcPaint.left;
             int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
             win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackBuffer, X, Y, Width, Height);
+            Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, &GlobalBackBuffer, X, Y, Width, Height);
             EndPaint(Window, &Paint);
         } break;
         default: {
-             OutputDebugStringA("Default case in MainWindowCallback\n");
              Result = DefWindowProcA(Window, Message, WParam, LParam);
         } break;
     }
@@ -146,7 +187,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
 
 
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode) {
-
+    Win32LoadXInput();
     WNDCLASSA WindowClass = {};
   
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
@@ -209,21 +250,38 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
                         int LX = Pad->sThumbLX;
                         int LY = Pad->sThumbLY;
+                       
+
+
+                        if (DPAD_UP) {
+                            YOffset -= 1;
+                        }
+                        if (DPAD_DOWN) {
+                            YOffset += 1;
+                        }
+                        if (DPAD_LEFT) {
+                            XOffset -= 1;
+                        }
+                        if (DPAD_RIGHT) {
+                            XOffset += 1;
+                        }
+
                     } else {
                         // Controller not connected, handle accordingly
 
                     }
                 }
+             
                 RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
 
                 HDC DeviceContext = GetDC(Window);
 
                 win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-                Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, GlobalBackBuffer, 0, 0, Dimension.Width, Dimension.Height);
+                Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, &GlobalBackBuffer, 0, 0, Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
                 ++XOffset;
-            
+               
             }
         }
     }
