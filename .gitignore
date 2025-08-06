@@ -67,3 +67,9 @@ data/*.generated
 local.config
 *.local
 setup_devenv.bat
+
+#################
+*.mp3
+*.wav
+*.icon
+*.png
