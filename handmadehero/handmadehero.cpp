@@ -8,6 +8,10 @@
 #define local_persist static
 #define global_variable static
 
+global_variable bool Running;
+global_variable win32_offscreen_buffer GlobalBackBuffer;
+global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+
 
 
 struct win32_offscreen_buffer {
@@ -40,7 +44,7 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 
-internal void Win32InitDSound(HWND Window, int32_t BufferSize) {
+internal void Win32InitDSound(HWND Window,int32_t BufferSize) {
     //load the library
     HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
     if(DSoundLibrary) {
@@ -81,8 +85,7 @@ internal void Win32InitDSound(HWND Window, int32_t BufferSize) {
             BufferDescription.dwFlags = 0;
             BufferDescription.dwBufferBytes = BufferSize;
             BufferDescription.lpwfxFormat = &WaveFormat;
-            LPDIRECTSOUNDBUFFER SecondaryBuffer;
-            if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &SecondaryBuffer, 0))) {
+            if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSecondaryBuffer, 0))) {
                 OutputDebugStringA("Secondary buffer created successfully\n");
             } else {
                 // Handle error
@@ -96,52 +99,6 @@ internal void Win32InitDSound(HWND Window, int32_t BufferSize) {
 
 
 
-internal void Win32FillSoundBuffer(LPDIRECTSOUNDBUFFER SecondaryBuffer, int ByteToLock, int BytesToWrite) {
-    VOID *Region1;
-    DWORD Region1Size;
-    VOID *Region2;
-    DWORD Region2Size;
-    
-    if(SUCCEEDED(SecondaryBuffer->Lock(ByteToLock, BytesToWrite,
-                                      &Region1, &Region1Size,
-                                      &Region2, &Region2Size,
-                                      0))) {
-        // Generate simple sine wave test tone
-        DWORD Region1SampleCount = Region1Size / 4; // 4 bytes per sample (16-bit stereo)
-        int16_t *SampleOut = (int16_t *)Region1;
-        local_persist float tSine = 0.0f;
-        int ToneHz = 256;
-        int WavePeriod = 44100 / ToneHz;
-        
-        for(DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex) {
-            float SineValue = sinf(tSine);
-            int16_t SampleValue = (int16_t)(SineValue * 3000);
-            *SampleOut++ = SampleValue; // Left channel
-            *SampleOut++ = SampleValue; // Right channel
-            
-            tSine += 2.0f * 3.14159265359f / (float)WavePeriod;
-            if(tSine > 2.0f * 3.14159265359f) {
-                tSine -= 2.0f * 3.14159265359f;
-            }
-        }
-        
-        DWORD Region2SampleCount = Region2Size / 4;
-        SampleOut = (int16_t *)Region2;
-        for(DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex) {
-            float SineValue = sinf(tSine);
-            int16_t SampleValue = (int16_t)(SineValue * 3000);
-            *SampleOut++ = SampleValue; // Left channel
-            *SampleOut++ = SampleValue; // Right channel
-            
-            tSine += 2.0f * 3.14159265359f / (float)WavePeriod;
-            if(tSine > 2.0f * 3.14159265359f) {
-                tSine -= 2.0f * 3.14159265359f;
-            }
-        }
-        
-        SecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
-    }
-}
 
 internal void Win32LoadXInput(void) {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
@@ -159,9 +116,7 @@ internal void Win32LoadXInput(void) {
     }
 }
 
-global_variable bool Running;
-global_variable win32_offscreen_buffer GlobalBackBuffer;
-global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+
 
 internal win32_window_dimension Win32GetWindowDimension(HWND Window) {
     win32_window_dimension Result;
@@ -207,8 +162,8 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, i
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
     int BitmapMemorySize = Buffer->BytesPerPixel * Buffer->Width * Buffer->Height;
-    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
-    
+    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
     Buffer->Pitch = Width*Buffer->BytesPerPixel;
 
     
@@ -337,8 +292,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             int XOffset = 0;
             int YOffset = 0;
 
+            int Hz = 256;
+            int SamplesPerSecond = 48000;
+            int SquareWaveCounter = 0;
+            int SquareWavePeriod = SamplesPerSecond / Hz;
+            int BytesPerSample = sizeof(int16_t) * 2;
             HDC DeviceContext = GetDC(Window);
-            Win32InitDSound(Window, 48000 * 2 * 2); // 48kHz, stereo, 16-bit
+
+            Win32InitDSound(Window, SamplesPerSecond * BytesPerSample);
 
             Running = true;
             MSG Message;
@@ -394,6 +355,52 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 }
              
                 RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
+
+
+                uint32_t PlayCursor = 0;
+                uint32_t WriteCursor = 0;
+                if(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
+                    DWORD WritePointer=;
+                    DWORD WriteBytes=; 
+
+                    VOID *Region1;
+                    DWORD Region1Size;
+                    VOID *Region2;
+                    DWORD Region2Size;
+
+                    if(SUCCEEDED(GlobalSecondaryBuffer->Lock(
+                        WritePointer,
+                        WriteBytes,
+                        &Region1,
+                        &Region1Size,
+                        &Region2,
+                        &Region2Size,
+                        0
+                        ))) {
+                        int16_t *SampleOut = (int16_t *)Region1;
+                        uint32_t Region1SampleCount = Region1Size / BytesPerSample;
+                        uint32_t Region2SampleCount = Region2Size / BytesPerSample;
+                        for(uint32_t SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex) {
+                            if (SquareWaveCounter){
+                                SquareWaveCounter -= SquareWavePeriod;
+                            }
+                            int16_t SampleValue = (SquareWaveCounter > (SquareWavePeriod / 2)) ? 16000  : -16000;
+                            *SampleOut++ = SampleValue;
+                            *SampleOut++ = SampleValue;
+                            --SquareWaveCounter;
+                        }
+                        for(uint32_t SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex) {
+                            if (SquareWaveCounter){
+                                SquareWaveCounter -= SquareWavePeriod;
+                            }
+                            int16_t SampleValue = (SquareWaveCounter > (SquareWavePeriod / 2)) ? 16000  : -16000;
+                            *SampleOut++ = SampleValue;
+                            *SampleOut++ = SampleValue;
+                            --SquareWaveCounter;
+
+                            }
+                    }
+                }
 
                 HDC DeviceContext = GetDC(Window);
 
