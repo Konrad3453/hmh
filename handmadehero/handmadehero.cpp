@@ -24,9 +24,21 @@ struct win32_window_dimension {
     int Height;
 };
 
+struct win32_sound_output {
+    int SamplesPerSecond;
+    int BytesPerSample;
+    int SecondaryBufferSize;
+    uint32_t RunningSampleIndex;
+    int SquareWavePeriod;
+    int HalfSquareWavePeriod;
+    int ToneVolume;
+    int ToneHz;
+    LPDIRECTSOUNDBUFFER SecondaryBuffer;
+};
+
 global_variable bool Running;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
-global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+global_variable win32_sound_output GlobalSoundOutput;
 
 // support for get and set states
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -85,7 +97,7 @@ internal void Win32InitDSound(HWND Window,int32_t SamplePerSecond, int32_t Buffe
             BufferDescription.dwFlags = 0;
             BufferDescription.dwBufferBytes = BufferSize;
             BufferDescription.lpwfxFormat = &WaveFormat;
-            if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSecondaryBuffer, 0))) {
+            if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSoundOutput.SecondaryBuffer, 0))) {
                 OutputDebugStringA("Secondary buffer created successfully\n");
             } else {
                 // Handle error
@@ -95,8 +107,6 @@ internal void Win32InitDSound(HWND Window,int32_t SamplePerSecond, int32_t Buffe
         }
     }
 }
-
-
 
 
 
@@ -305,7 +315,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           
 
             Win32InitDSound(Window, SamplesPerSecond, SecondaryBufferSize);
-            GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+            GlobalSoundOutput.SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             Running = true;
             MSG Message;
@@ -365,7 +375,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
                 DWORD PlayCursor = 0;
                 DWORD WriteCursor = 0;
-                if(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
+                if(SUCCEEDED(GlobalSoundOutput.SecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
                     DWORD ByteToLock = RunningSampleIndex * BytesPerSample % SecondaryBufferSize;
                     DWORD BytesToWrite = 0;
                     if (ByteToLock > PlayCursor) {
@@ -381,7 +391,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                     DWORD Region2Size;
 
                    
-                    if(SUCCEEDED(GlobalSecondaryBuffer->Lock(
+                    if(SUCCEEDED(GlobalSoundOutput.SecondaryBuffer->Lock(
                         ByteToLock,
                         BytesToWrite,
                         &Region1,
@@ -408,7 +418,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                             *SampleOut++ = SampleValue;
                             ++RunningSampleIndex;
                             }
-                            GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
+                            GlobalSoundOutput.SecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
                     }
                 }
 
