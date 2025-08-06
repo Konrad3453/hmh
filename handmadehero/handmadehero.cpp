@@ -33,6 +33,8 @@ struct win32_sound_output {
     int HalfWavePeriod;
     int ToneVolume;
     int ToneHz;
+    float tSine;
+    int LatencySampleCount;
 };
 
 global_variable bool Running;
@@ -60,22 +62,22 @@ internal void Win32FillSoundbuffer(win32_sound_output *SoundOutput, DWORD ByteTo
         int16_t *SampleOut = (int16_t *)Region1;
         // Generate sine wave samples for the first region
         for(DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex) {
-            float t = (float)SoundOutput->RunningSampleIndex / SoundOutput->WavePeriod * 2.0f * 3.14159f;
-            float SineValue = sinf(t);
+            float SineValue = sinf(SoundOutput->tSine);
             int16_t SampleValue = (int16_t)(SineValue * SoundOutput->ToneVolume);
             *SampleOut++ = SampleValue;
             *SampleOut++ = SampleValue;
+            SoundOutput->tSine += 2.0f * 3.14159f / (float)SoundOutput->WavePeriod;
             ++SoundOutput->RunningSampleIndex;
         }
         DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
         SampleOut = (int16_t *)Region2;
         // Generate sine wave samples for the second region
         for(DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex) {
-            float t = (float)SoundOutput->RunningSampleIndex / SoundOutput->WavePeriod * 2.0f * 3.14159f;
-            float SineValue = sinf(t);
+            float SineValue = sinf(SoundOutput->tSine);
             int16_t SampleValue = (int16_t)(SineValue * SoundOutput->ToneVolume);
             *SampleOut++ = SampleValue;
             *SampleOut++ = SampleValue;
+            SoundOutput->tSine += 2.0f * 3.14159f / (float)SoundOutput->WavePeriod;
             ++SoundOutput->RunningSampleIndex;
         }
         GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
@@ -359,25 +361,29 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             win32_sound_output SoundOutput = {};
 
             bool SoundIsPlaying = false;
-            SoundOutput.ToneHz = 256;
+            SoundOutput.ToneHz = 512;
             SoundOutput.RunningSampleIndex = 0;
             SoundOutput.ToneVolume = 500;
             SoundOutput.SamplesPerSecond = 48000;
             SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
             //int HalfWavePeriod = WavePeriod / 2;
+            SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
             SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
             SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
 
             // Initialize DirectSound audio system
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
-            Win32FillSoundbuffer(&SoundOutput, 0, SoundOutput.SecondaryBufferSize);
+            Win32FillSoundbuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample);
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+
+            LARGE_INTEGER LastCounter;
+            QueryPerformanceCounter(&LastCounter);
 
             // Main game loop
             Running = true;
             MSG Message;
             while(Running) {
-                
+         
                 // Process Windows messages
                 while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)) {
                     
@@ -408,8 +414,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
                         int LX = Pad->sThumbLX;
                         int LY = Pad->sThumbLY;
+                        XOffset += LX / 4096; // Normalize to range [-128, 127]
+                        YOffset += LY / 4096;
                        
-
+                        SoundOutput.ToneHz = 512 + (int)(256.0f * ((float)LY / 30000.0f));
+                        SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
                         // Use D-Pad to control gradient offset
                         if (DPAD_UP) {
                             YOffset -= 1;
@@ -422,8 +431,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                         }
                         if (DPAD_RIGHT) {
                             XOffset += 1;
-                        }
-
+                        } 
+                        
+ 
                     } else {
                         // Controller not connected, handle accordingly
 
@@ -439,14 +449,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 if(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
                     // Calculate which part of the sound buffer to write to
                     DWORD ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+                    DWORD TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
                     DWORD BytesToWrite;
-                    if (ByteToLock == PlayCursor) {
-                        BytesToWrite = 0;
-                    } else if (ByteToLock > PlayCursor) {
+                    if (ByteToLock > TargetCursor) {
                         BytesToWrite = SoundOutput.SecondaryBufferSize - ByteToLock;
-                        BytesToWrite += PlayCursor;
+                        BytesToWrite += TargetCursor;
                     } else {
-                        BytesToWrite = PlayCursor - ByteToLock;
+                        BytesToWrite = TargetCursor - ByteToLock;
                     }
                     Win32FillSoundbuffer(&SoundOutput, ByteToLock, BytesToWrite);                   
                 }
@@ -459,9 +468,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                
                 ReleaseDC(Window, DeviceContext);
 
-                // Animate the gradient by incrementing XOffset each frame
-                ++XOffset;
-               
+                LARGE_INTEGER BeginCounter;
+                QueryPerformanceCounter(&BeginCounter);
             }
         }
     }
