@@ -320,6 +320,11 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
 // Initializes the window, sets up graphics and audio systems, and runs the main game loop
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode) {
     // Initialize XInput for game controller support
+
+    LARGE_INTEGER PerfCountFrequencyResult;
+    QueryPerformanceFrequency(&PerfCountFrequencyResult);
+    int64_t PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+
     Win32LoadXInput();
     WNDCLASSA WindowClass = {};
   
@@ -332,6 +337,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
     WindowClass.hInstance = Instance;
     //WindowClass.hIcon;
     WindowClass.lpszClassName = "HandmadeHeroWindowClass";
+
+ 
+
     if(RegisterClassA(&WindowClass)) {
         // Create the main window
         HWND Window = CreateWindowExA(
@@ -376,11 +384,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             Win32FillSoundbuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample);
             GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
+
+
+            Running = true;
             LARGE_INTEGER LastCounter;
             QueryPerformanceCounter(&LastCounter);
 
             // Main game loop
-            Running = true;
+            
             MSG Message;
             while(Running) {
          
@@ -468,8 +479,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                
                 ReleaseDC(Window, DeviceContext);
 
-                LARGE_INTEGER BeginCounter;
-                QueryPerformanceCounter(&BeginCounter);
+                LARGE_INTEGER EndCounter;
+                QueryPerformanceCounter(&EndCounter);
+                int64_t CounterElapsed = (int)(EndCounter.QuadPart - LastCounter.QuadPart);
+                int64_t MillisecondsElapsed = (1000 * CounterElapsed) / PerfCountFrequency;
+                char Buffer[256];
+                wsprintf(Buffer, "Frame time: %d ms\n", MillisecondsElapsed);
+                OutputDebugStringA(Buffer);
+                LastCounter = EndCounter;
             }
         }
     }
