@@ -8,10 +8,6 @@
 #define local_persist static
 #define global_variable static
 
-global_variable bool Running;
-global_variable win32_offscreen_buffer GlobalBackBuffer;
-global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
-
 
 
 struct win32_offscreen_buffer {
@@ -27,6 +23,10 @@ struct win32_window_dimension {
     int Width;
     int Height;
 };
+
+global_variable bool Running;
+global_variable win32_offscreen_buffer GlobalBackBuffer;
+global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 
 // support for get and set states
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -44,7 +44,7 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 
-internal void Win32InitDSound(HWND Window,int32_t BufferSize) {
+internal void Win32InitDSound(HWND Window,int32_t SamplePerSecond, int32_t BufferSize) {
     //load the library
     HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
     if(DSoundLibrary) {
@@ -288,18 +288,24 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         );
 
         if(Window) {
-            
+            HDC DeviceContext = GetDC(Window);
+            //Graphics
             int XOffset = 0;
             int YOffset = 0;
 
-            int Hz = 256;
+            //Sound
+            int ToneHz = 256;
+            uint32_t RunningSampleIndex = 0;
+            int ToneVolume = 100;
             int SamplesPerSecond = 48000;
-            int SquareWaveCounter = 0;
-            int SquareWavePeriod = SamplesPerSecond / Hz;
+            int SquareWavePeriod = SamplesPerSecond / ToneHz;
+            int HalfSquareWavePeriod = SquareWavePeriod / 2;
             int BytesPerSample = sizeof(int16_t) * 2;
-            HDC DeviceContext = GetDC(Window);
+            int SecondaryBufferSize = SamplesPerSecond * BytesPerSample;
+          
 
-            Win32InitDSound(Window, SamplesPerSecond * BytesPerSample);
+            Win32InitDSound(Window, SamplesPerSecond, SecondaryBufferSize);
+            GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             Running = true;
             MSG Message;
@@ -357,20 +363,27 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
 
 
-                uint32_t PlayCursor = 0;
-                uint32_t WriteCursor = 0;
+                DWORD PlayCursor = 0;
+                DWORD WriteCursor = 0;
                 if(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
-                    DWORD WritePointer=;
-                    DWORD WriteBytes=; 
-
+                    DWORD ByteToLock = RunningSampleIndex * BytesPerSample % SecondaryBufferSize;
+                    DWORD BytesToWrite = 0;
+                    if (ByteToLock > PlayCursor) {
+                        BytesToWrite = SecondaryBufferSize - ByteToLock;
+                        BytesToWrite += PlayCursor;
+                    } else {
+                        BytesToWrite = PlayCursor - ByteToLock;
+                    }
+                    
                     VOID *Region1;
                     DWORD Region1Size;
                     VOID *Region2;
                     DWORD Region2Size;
 
+                   
                     if(SUCCEEDED(GlobalSecondaryBuffer->Lock(
-                        WritePointer,
-                        WriteBytes,
+                        ByteToLock,
+                        BytesToWrite,
                         &Region1,
                         &Region1Size,
                         &Region2,
@@ -378,27 +391,24 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                         0
                         ))) {
                         int16_t *SampleOut = (int16_t *)Region1;
-                        uint32_t Region1SampleCount = Region1Size / BytesPerSample;
-                        uint32_t Region2SampleCount = Region2Size / BytesPerSample;
-                        for(uint32_t SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex) {
-                            if (SquareWaveCounter){
-                                SquareWaveCounter -= SquareWavePeriod;
-                            }
-                            int16_t SampleValue = (SquareWaveCounter > (SquareWavePeriod / 2)) ? 16000  : -16000;
-                            *SampleOut++ = SampleValue;
-                            *SampleOut++ = SampleValue;
-                            --SquareWaveCounter;
-                        }
-                        for(uint32_t SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex) {
-                            if (SquareWaveCounter){
-                                SquareWaveCounter -= SquareWavePeriod;
-                            }
-                            int16_t SampleValue = (SquareWaveCounter > (SquareWavePeriod / 2)) ? 16000  : -16000;
-                            *SampleOut++ = SampleValue;
-                            *SampleOut++ = SampleValue;
-                            --SquareWaveCounter;
+                        
+                        DWORD Region1SampleCount = Region1Size / BytesPerSample;
+                        DWORD Region2SampleCount = Region2Size / BytesPerSample;
+                        for(DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex) {
 
+                            int16_t SampleValue = (RunningSampleIndex  / HalfSquareWavePeriod % 2) ? ToneVolume  : -ToneVolume;
+                            *SampleOut++ = SampleValue;
+                            *SampleOut++ = SampleValue;
+                            ++RunningSampleIndex;
+                        }
+                        SampleOut = (int16_t *)Region2;
+                        for(DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex) {
+                            int16_t SampleValue = ((RunningSampleIndex / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
+                            *SampleOut++ = SampleValue;
+                            *SampleOut++ = SampleValue;
+                            ++RunningSampleIndex;
                             }
+                            GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
                     }
                 }
 
