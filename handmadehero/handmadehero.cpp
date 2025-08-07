@@ -4,12 +4,15 @@
 #include <dsound.h>
 #include <math.h>
 
+
+
+
 #define internal static
 #define local_persist static
 #define global_variable static
+#define bool32_t int32_t
 
-
-
+#include "handmade.cpp"
 struct win32_offscreen_buffer {
   BITMAPINFO Info;
   void *Memory;
@@ -37,7 +40,7 @@ struct win32_sound_output {
     int LatencySampleCount;
 };
 
-global_variable bool Running;
+global_variable bool32_t Running;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable win32_sound_output GlobalSoundOutput;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
@@ -259,8 +262,8 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
         case WM_SYSKEYUP:
         {
             uint32_t VKCode = WParam;
-            bool WasDown = (LParam & (1 << 30)) != 0;  // Check if the high-order bit is set
-            bool IsDown = (LParam & (1 << 31)) == 0; // Check if the low-order bit is clear
+            bool32_t WasDown = (LParam & (1 << 30)) != 0;  // Check if the high-order bit is set
+            bool32_t IsDown = (LParam & (1 << 31)) == 0; // Check if the low-order bit is clear
             if (WasDown != IsDown) {
                
                 if(VKCode == 'W') {
@@ -283,7 +286,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
                     }
                     
                 }
-                bool AltKeyWasDown = (LParam & (1 << 29)) != 0; // Check if the ALT key was down
+                bool32_t AltKeyWasDown = (LParam & (1 << 29)) != 0; // Check if the ALT key was down
                 if(VKCode == VK_F4 && AltKeyWasDown) {
                     Running = false;
                     OutputDebugStringA("Escape key pressed, exiting...\n");
@@ -316,9 +319,10 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
     return Result;
 }
 
+
 // Main entry point for Windows applications
 // Initializes the window, sets up graphics and audio systems, and runs the main game loop
-int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode) {
+int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode){
     // Initialize XInput for game controller support
 
     LARGE_INTEGER PerfCountFrequencyResult;
@@ -368,7 +372,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
             win32_sound_output SoundOutput = {};
 
-            bool SoundIsPlaying = false;
+            bool32_t SoundIsPlaying = false;
             SoundOutput.ToneHz = 512;
             SoundOutput.RunningSampleIndex = 0;
             SoundOutput.ToneVolume = 500;
@@ -387,9 +391,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
 
             Running = true;
+
+
+            // Initialize performance metrics 
             LARGE_INTEGER LastCounter;
             QueryPerformanceCounter(&LastCounter);
-
+            int64_t LastCycleCount = __rdtsc();
+        
             // Main game loop
             
             MSG Message;
@@ -410,18 +418,18 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                     if (XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS) {
                         // Controller is connected - read input state
                         XINPUT_GAMEPAD *Pad = &ControllerState.Gamepad;
-                        bool DPAD_UP = Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
-                        bool DPAD_DOWN = Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-                        bool DPAD_LEFT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-                        bool DPAD_RIGHT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
-                        bool A_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_A;
-                        bool B_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_B;
-                        bool X_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_X;
-                        bool Y_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_Y;
-                        bool START_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_START;
-                        bool BACK_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_BACK;
-                        bool LEFT_SHOULDER = Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
-                        bool RIGHT_SHOULDER = Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+                        bool32_t DPAD_UP = Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
+                        bool32_t DPAD_DOWN = Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                        bool32_t DPAD_LEFT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                        bool32_t DPAD_RIGHT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                        bool32_t A_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_A;
+                        bool32_t B_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_B;
+                        bool32_t X_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_X;
+                        bool32_t Y_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_Y;
+                        bool32_t START_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_START;
+                        bool32_t BACK_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_BACK;
+                        bool32_t LEFT_SHOULDER = Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
+                        bool32_t RIGHT_SHOULDER = Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
 
                         int LX = Pad->sThumbLX;
                         int LY = Pad->sThumbLY;
@@ -451,8 +459,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                     }
                 }
              
-                // Render the gradient pattern to the back buffer
-                RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
+                game_offscreen_buffer Buffer = {};
+                Buffer.Memory = GlobalBackBuffer.Memory;
+                Buffer.Width = GlobalBackBuffer.Width;
+                Buffer.Height = GlobalBackBuffer.Height;
+                Buffer.Pitch = GlobalBackBuffer.Pitch;
+                // Update and render the game
+                GameUpdateAndRender(&Buffer, XOffset, YOffset);
+
 
                 // DirectSound audio mixing and playback
                 DWORD PlayCursor;
@@ -479,14 +493,22 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                
                 ReleaseDC(Window, DeviceContext);
 
+
+                // Check performance metrics
+                int64_t EndCycleCount = __rdtsc();
                 LARGE_INTEGER EndCounter;
                 QueryPerformanceCounter(&EndCounter);
+                int64_t CyclesElapsed = EndCycleCount - LastCycleCount;
                 int64_t CounterElapsed = (int)(EndCounter.QuadPart - LastCounter.QuadPart);
                 int64_t MillisecondsElapsed = (1000 * CounterElapsed) / PerfCountFrequency;
+                int64_t MSPerFrame = PerfCountFrequency / CounterElapsed;
+#if 0
                 char Buffer[256];
-                wsprintf(Buffer, "Frame time: %d ms\n", MillisecondsElapsed);
+                wsprintf(Buffer, "MS / Frame: %dms / %dFPS  %dmc/f\n", MillisecondsElapsed, MSPerFrame, CyclesElapsed /(1000 * 1000));
                 OutputDebugStringA(Buffer);
+#endif
                 LastCounter = EndCounter;
+                LastCycleCount = EndCycleCount;
             }
         }
     }
@@ -498,3 +520,17 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
     return 0;
 }
 
+/* interesting facts
+- using int32 as bool type is more efficient -> 4byte fits better
+
+
+
+
+
+
+
+
+
+
+
+*/
