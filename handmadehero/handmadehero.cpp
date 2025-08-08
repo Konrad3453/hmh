@@ -419,6 +419,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                         bool32_t DPAD_LEFT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
                         bool32_t DPAD_RIGHT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
                         bool32_t A_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_A;
+                       /// A is X and X is A ????
                         bool32_t B_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_B;
                         bool32_t X_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_X;
                         bool32_t Y_BUTTON = Pad->wButtons & XINPUT_GAMEPAD_Y;
@@ -430,7 +431,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                         int LX = Pad->sThumbLX;
                         int LY = Pad->sThumbLY;
                      
-                       
                         
  
                     } else {
