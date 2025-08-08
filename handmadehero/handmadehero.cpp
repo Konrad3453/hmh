@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdint.h>
+#include <malloc.h>
 
 #define internal static
 #define local_persist static
@@ -12,34 +13,8 @@
 #include <stdio.h>
 #include <Xinput.h>
 #include <dsound.h>
-
+#include "win32_handmade.h"
 // Define structs FIRST before using them in global variables
-struct win32_offscreen_buffer {
-  BITMAPINFO Info;
-  void *Memory;
-  int Width; 
-  int Height; 
-  int BytesPerPixel;
-  int Pitch; 
-};
-
-struct win32_window_dimension {
-    int Width;
-    int Height;
-};
-
-struct win32_sound_output {
-    int SamplesPerSecond;
-    int BytesPerSample;
-    int SecondaryBufferSize;
-    uint32_t RunningSampleIndex;
-    int WavePeriod;
-    int HalfWavePeriod;
-    int ToneVolume;
-    int ToneHz;
-    float tSine;
-    int LatencySampleCount;
-};
 
 // NOW declare global variables using the structs
 global_variable bool32_t Running;
@@ -389,9 +364,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
         if(Window) {
             HDC DeviceContext = GetDC(Window);
-            //Graphics
-            int XOffset = 0;
-            int YOffset = 0;
 
             //Sound
             // Audio configuration variables
@@ -399,11 +371,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             win32_sound_output SoundOutput = {};
 
             bool32_t SoundIsPlaying = false;
-            SoundOutput.ToneHz = 256;
             SoundOutput.RunningSampleIndex = 0;
-            SoundOutput.ToneVolume = 500;
             SoundOutput.SamplesPerSecond = 48000;
-            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+
             //int HalfWavePeriod = WavePeriod / 2;
             SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
             SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
@@ -417,7 +387,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
 
             Running = true;
-
+            int16_t *Samples = (int16_t *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
             // Initialize performance metrics 
             LARGE_INTEGER LastCounter;
@@ -459,24 +429,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
                         int LX = Pad->sThumbLX;
                         int LY = Pad->sThumbLY;
-                        XOffset += LX / 4096; // Normalize to range [-128, 127]
-                        YOffset += LY / 4096;
+                     
                        
-                        SoundOutput.ToneHz = 512 + (int)(256.0f * ((float)LY / 30000.0f));
-                        SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
-                        // Use D-Pad to control gradient offset
-                        if (DPAD_UP) {
-                            YOffset -= 1;
-                        }
-                        if (DPAD_DOWN) {
-                            YOffset += 1;
-                        }
-                        if (DPAD_LEFT) {
-                            XOffset -= 1;
-                        }
-                        if (DPAD_RIGHT) {
-                            XOffset += 1;
-                        } 
                         
  
                     } else {
@@ -484,11 +438,11 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
                     }
                 }
-                DWORD PlayCursor;
-                DWORD WriteCursor;
-                DWORD ByteToLock ;
-                  DWORD BytesToWrite;
-                DWORD TargetCursor;
+                DWORD PlayCursor = 0;
+                DWORD WriteCursor = 0;
+                DWORD ByteToLock = 0;
+                DWORD BytesToWrite = 0;
+                DWORD TargetCursor = 0;
                 bool32_t SoundIsValid = false;
                 if(SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor))) {
                     
@@ -504,7 +458,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                     SoundIsValid = true;
                 }
                 // Make the buffer larger to be safe
-                int16_t Samples[48000*2];  
+                 
                 game_sound_output_buffer SoundBuffer = {};
                 SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond; 
                 SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
@@ -517,7 +471,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 Buffer.Height = GlobalBackBuffer.Height;
                 Buffer.Pitch = GlobalBackBuffer.Pitch;
                 // Update and render the game
-                GameUpdateAndRender(&Buffer, XOffset, YOffset, &SoundBuffer, SoundOutput.ToneHz);
+                GameUpdateAndRender(&Buffer, &SoundBuffer);
 
                 if (SoundIsValid){
                 // DirectSound audio mixing and playback
