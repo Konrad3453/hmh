@@ -1,6 +1,8 @@
 #if (!defined(HANDMADE_H))
 
 
+#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
 struct game_offscreen_buffer {
     void *Memory;
     int Width;
@@ -18,6 +20,8 @@ struct game_button_state {
     int HalfTransitionCount;
 };
 struct game_controller_input {
+    bool32_t Analog;
+
     float StartX;
     float StartY;
 
@@ -45,8 +49,11 @@ struct game_controller_input {
 struct game_input {
     game_controller_input Controllers[4];
 };
-internal void GameUpdateAndRender(game_offscreen_buffer *Buffer, int XOffset, int YOffset, 
+internal void GameUpdateAndRender(game_input *Input, game_offscreen_buffer *Buffer, int XOffset, int YOffset, 
                                     game_sound_output_buffer *SoundBuffer, int ToneHz); 
 #define HANDMADE_H
 
 #endif // HANDMADE_H
+
+
+
