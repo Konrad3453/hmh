@@ -430,8 +430,15 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                         bool32_t DPAD_LEFT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
                         bool32_t DPAD_RIGHT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
 
-                        int LX = Pad->sThumbLX;
-                        int LY = Pad->sThumbLY;
+                        float X;
+                        if(Pad->sThumbLX < 0) {
+                            X = (float)Pad->sThumbLX / -32768.0f;
+                        } else {
+                            X = (float)Pad->sThumbLX / 32767.0f;
+                        }
+                        NewController->StartX = OldController->EndX;
+                        NewController->StartY = OldController->EndY;
+                        NewController->MinX = OldController->MaxX = NewController->EndX = X;
 
                         Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->Down, XINPUT_GAMEPAD_A, &NewController->Down);
                         Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->Right, XINPUT_GAMEPAD_B, &NewController->Right);
