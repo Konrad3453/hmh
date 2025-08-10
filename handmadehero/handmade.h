@@ -1,8 +1,22 @@
 #if (!defined(HANDMADE_H))
 
+/*
+HANDMADE_INTERNAL=0  - public
+HANDMADE_INTERNAL=1  - devenv
+
+HANDMADE_SLOW=0      - optimized
+HANDMADE_SLOW=1      - debug
+*/
+
+#if HANDMADE_SLOW
+#define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
+#else
+#define Assert(Expression)
+#endif
 #define Kilobyte(Value) ((Value) * 1024)
 #define Megabyte(Value) (Kilobyte(Value) * 1024)
 #define Gigabyte(Value) (Megabyte(Value) * 1024)
+#define Terabyte(Value) (Gigabyte(Value) * 1024)
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
 struct game_offscreen_buffer {
@@ -56,6 +70,9 @@ struct game_memory {
     bool32_t   IsInitialized;
     int64_t   PermanentStorageSize;
     void    *PermanentStorage;
+
+    void    *TransientStorage;
+    int64_t   TransientStorageSize;
 };
 
 internal void GameUpdateAndRender(game_memory *GameMemory, game_input *Input, game_offscreen_buffer *Buffer, 

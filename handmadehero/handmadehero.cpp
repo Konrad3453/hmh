@@ -392,11 +392,23 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             Running = true;
             int16_t *Samples = (int16_t *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
+#if HANDMADE_INTERNAL
+          
+            LPVOID BaseAddress = (LPVOID)Terabyte((uint64_t)2);
+#else
+            LPVOID BaseAddress = 0;
+#endif 
+
             game_memory GameMemory = {};
             GameMemory.PermanentStorageSize = Megabyte(64);
-            GameMemory.PermanentStorage = VirtualAlloc(0, GameMemory.PermanentStorageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            GameMemory.TransientStorageSize = Gigabyte(uint64_t(4));
+            uint64_t TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
 
-
+            GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            GameMemory.TransientStorage = (uint8_t *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize;
+            
+            
+            if (Samples && GameMemory.PermanentStorage && GameMemory.TransientStorage) {    
             game_input Input[2] = {};
             game_input *NewInput = &Input[0];
             game_input *OldInput = &Input[1];
@@ -547,9 +559,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 NewInput = OldInput;
                 OldInput = Temp;
             }
+            } else {
+                OutputDebugStringA("OS f'd up\n");
+            }
         }
     }
-
+    // Register the window class and create the main window
+  
 
     else {
         OutputDebugStringA("Failed to register window class\n");
