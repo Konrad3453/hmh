@@ -391,6 +391,12 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
             Running = true;
             int16_t *Samples = (int16_t *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+            game_memory GameMemory = {};
+            GameMemory.PermanentStorageSize = Megabyte(64);
+            GameMemory.PermanentStorage = VirtualAlloc(0, GameMemory.PermanentStorageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+
             game_input Input[2] = {};
             game_input *NewInput = &Input[0];
             game_input *OldInput = &Input[1];
@@ -430,15 +436,24 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                         bool32_t DPAD_LEFT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
                         bool32_t DPAD_RIGHT = Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
 
+                        NewController->Analog = true;
+                        NewController->StartX = OldController->EndX;
+                        NewController->StartY = OldController->EndY;
                         float X;
                         if(Pad->sThumbLX < 0) {
-                            X = (float)Pad->sThumbLX / -32768.0f;
+                            X = (float)Pad->sThumbLX / 32768.0f;
                         } else {
                             X = (float)Pad->sThumbLX / 32767.0f;
                         }
-                        NewController->StartX = OldController->EndX;
-                        NewController->StartY = OldController->EndY;
                         NewController->MinX = OldController->MaxX = NewController->EndX = X;
+                        float Y;
+                        if(Pad->sThumbLY < 0) {
+                            Y = (float)Pad->sThumbLY / 32768.0f;
+                        } else {
+                            Y = (float)Pad->sThumbLY / 32767.0f;
+                        }
+                        NewController->MinY = OldController->MaxY = NewController->EndY = Y;
+
 
                         Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->Down, XINPUT_GAMEPAD_A, &NewController->Down);
                         Win32ProcessXInputDigitalButton(Pad->wButtons, &OldController->Right, XINPUT_GAMEPAD_B, &NewController->Right);
@@ -485,7 +500,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond; 
                 SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
                 SoundBuffer.Samples = Samples;
-
+                
 
                 game_offscreen_buffer Buffer = {};
                 Buffer.Memory = GlobalBackBuffer.Memory;
@@ -493,7 +508,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 Buffer.Height = GlobalBackBuffer.Height;
                 Buffer.Pitch = GlobalBackBuffer.Pitch;
                 // Update and render the game
-                GameUpdateAndRender(NewInput, &Buffer, &SoundBuffer);
+                GameUpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
 
                 if (SoundIsValid){
                 // DirectSound audio mixing and playback
@@ -543,9 +558,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 }
 
 /* interesting facts
-- using int32 as bool type is more efficient -> 4byte fits better
+- using int32 as bool type is more efficient -> 4byte memory layout
 - pixels are 32bits wide (4 bytes) in memory BGRX format    
-
+- Getting memory chunk => can start = will run || vs ||  dynamic memory allocation
 
 
 
