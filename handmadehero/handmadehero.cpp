@@ -161,6 +161,42 @@ internal void Win32InitDSound(HWND Window,int32_t SamplePerSecond, int32_t Buffe
     }
 }
 
+
+internal void *DEBUGPlatformReadEntireFile(char *Filename){
+    void *Result = 0;
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE){
+        LARGE_INTEGER FileSize;
+        if(GetFileSizeEx(FileHandle, &FileSize)) {
+            uint32_t FileSize32 = SafeTruncateUInt64(FileSize.QuadPart);
+            Result = VirtualAlloc(0, FileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            if(Result) {
+                DWORD BytesRead;
+                if(ReadFile(FileHandle, Result, FileSize32, &BytesRead, 0) &&
+                           (FileSize32 == BytesRead)){
+
+                } else {
+                    DEBUGPlatformFreeFileMemory(Result);
+                    Result = 0;
+                }
+            } else {
+                //loging 
+            }
+        }
+        CloseHandle(FileHandle);
+    }
+    return Result;
+    
+}
+internal void DEBUGPlatformFreeFileMemory(void *Memory){
+
+}
+
+internal bool32_t DEBUGPlatformReadEntireFile(char *Filename, uint32_t MemorySize, void *Memory){
+
+}
+
+
 // Load XInput library dynamically to support game controllers
 // Tries multiple XInput versions for compatibility across different Windows versions
 internal void Win32LoadXInput(void) {

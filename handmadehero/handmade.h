@@ -21,12 +21,18 @@ HANDMADE_SLOW=1      - debug
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
 
+inline uint32_t SafeTruncateUInt64(uint64_t Value) {
+    Assert(Value <= 0xFFFFFFFF);
+    uint32_t Result = (uint32_t)Value;
+    return Result;
+
+}
 
 #if HANDMADE_INTERNAL
-void *DEBUGPlatformReadEntireFile(char *Filename);
-void DEBUGPlatformFreeFileMemory(void *Memory);
+internal void *DEBUGPlatformReadEntireFile(char *Filename);
+internal void DEBUGPlatformFreeFileMemory(void *Memory);
 
-bool32_t *DEBUGPlatformReadEntireFile(char *Filename, uint32_t MemorySize, void *Memory);
+internal bool32_t DEBUGPlatformReadEntireFile(char *Filename, uint32_t MemorySize, void *Memory);
 
 #endif
 
