@@ -25,14 +25,15 @@ inline uint32_t SafeTruncateUInt64(uint64_t Value) {
     Assert(Value <= 0xFFFFFFFF);
     uint32_t Result = (uint32_t)Value;
     return Result;
-
 }
-
 #if HANDMADE_INTERNAL
-internal void *DEBUGPlatformReadEntireFile(char *Filename);
+struct debug_read_file_result {
+    uint32_t ContentSize;
+    void *Contents;
+};
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
 internal void DEBUGPlatformFreeFileMemory(void *Memory);
-
-internal bool32_t DEBUGPlatformReadEntireFile(char *Filename, uint32_t MemorySize, void *Memory);
+internal bool32_t DEBUGPlatformWriteEntireFile(char *Filename, uint32_t MemorySize, void *Memory);
 
 #endif
 

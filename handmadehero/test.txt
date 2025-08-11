@@ -49,8 +49,7 @@ internal void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_o
 
         debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
         if(File.Contents) {
-            //DEBUGPlatformWriteEntireFile("X:\\hmh\\handmadehero\\data\\test.out", File.ContentSize, File.Contents);
-            DEBUGPlatformWriteEntireFile("X:/hmh/handmadehero/data/test.txt", File.ContentSize, File.Contents);
+            DEBUGPlatformWriteEntireFile("test.txt", File.ContentSize, File.Contents);
             DEBUGPlatformFreeFileMemory(File.Contents);
         }
       
