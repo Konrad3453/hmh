@@ -41,10 +41,20 @@ internal void RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset,
 internal void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer, 
     game_sound_output_buffer *SoundBuffer) {
     Assert(Memory->PermanentStorageSize >= sizeof(game_state));
-
+    
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     if(Memory->IsInitialized == false) {
         
+        char *Filename = "test.bmp";
+
+        void *BitmapMemory = DEBUGPlatformReadEntireFile(Filename);
+        if(BitmapMemory) {
+            DEBUGPlatformFreeFileMemory(BitmapMemory);
+        }
+      
+
+
+
         GameState->ToneHz = 256;
         Memory->IsInitialized = true;
     }

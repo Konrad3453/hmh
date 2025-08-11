@@ -8,16 +8,28 @@ HANDMADE_SLOW=0      - optimized
 HANDMADE_SLOW=1      - debug
 */
 
+
 #if HANDMADE_SLOW
 #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #else
 #define Assert(Expression)
 #endif
-#define Kilobyte(Value) ((Value) * 1024)
-#define Megabyte(Value) (Kilobyte(Value) * 1024)
-#define Gigabyte(Value) (Megabyte(Value) * 1024)
-#define Terabyte(Value) (Gigabyte(Value) * 1024)
+#define Kilobyte(Value) ((Value) * 1024LL)
+#define Megabyte(Value) (Kilobyte(Value) * 1024LL)
+#define Gigabyte(Value) (Megabyte(Value) * 1024LL)
+#define Terabyte(Value) (Gigabyte(Value) * 1024LL)
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
+
+
+#if HANDMADE_INTERNAL
+void *DEBUGPlatformReadEntireFile(char *Filename);
+void DEBUGPlatformFreeFileMemory(void *Memory);
+
+bool32_t *DEBUGPlatformReadEntireFile(char *Filename, uint32_t MemorySize, void *Memory);
+
+#endif
+
 
 struct game_offscreen_buffer {
     void *Memory;
@@ -63,6 +75,7 @@ struct game_controller_input {
     };
 };
 struct game_input {
+    // clock here
     game_controller_input Controllers[4];
 };
 
@@ -74,6 +87,8 @@ struct game_memory {
     void    *TransientStorage;
     int64_t   TransientStorageSize;
 };
+
+
 
 internal void GameUpdateAndRender(game_memory *GameMemory, game_input *Input, game_offscreen_buffer *Buffer, 
                                     game_sound_output_buffer *SoundBuffer); 
