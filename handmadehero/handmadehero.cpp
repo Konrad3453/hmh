@@ -485,7 +485,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 if(MaxControllerCount > ArrayCount(NewInput->Controllers)) {
                     MaxControllerCount = ArrayCount(NewInput->Controllers);
                 }
-                for(DWORD ControllerIndex = 0; ControllerIndex < MaxControllerCount; ++ControllerIndex) {
+                for(int32_t ControllerIndex = 0; ControllerIndex < MaxControllerCount; ++ControllerIndex) {
                     game_controller_input *OldController = &OldInput->Controllers[ControllerIndex];
                     game_controller_input *NewController = &NewInput->Controllers[ControllerIndex];
                     XINPUT_STATE ControllerState;
