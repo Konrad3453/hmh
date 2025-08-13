@@ -239,21 +239,7 @@ internal win32_window_dimension Win32GetWindowDimension(HWND Window) {
     return Result;
 }
 
-// Creates animated visual effects based on XOffset and YOffset values
-internal void RenderWeirdGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset) {
 
-    uint8_t *Row = (uint8_t *)Buffer->Memory;
-    for (int Y = 0; Y < Buffer->Height; ++Y) {
-        uint32_t *Pixel = (uint32_t *)Row;
-        for (int X = 0; X < Buffer->Width; ++X) {
-            uint8_t Blue = (uint8_t)(X + XOffset);
-            uint8_t Green = (uint8_t)(Y + YOffset);
-            uint8_t Red = (uint8_t)(X - Y - XOffset - YOffset);
-            *Pixel++ =(Green << 8) | (Red << 16) | Blue;
-        }
-        Row += Buffer->Pitch; 
-    }
-}
 
 // Create and resize the DIB (Device Independent Bitmap) section for off-screen rendering
 // Allocates memory for pixel data and sets up bitmap info header
@@ -314,7 +300,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WPara
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         {
-            uint32_t VKCode = WParam;
+            uint32_t VKCode = (uint32_t)WParam;
             bool32_t WasDown = (LParam & (1 << 30)) != 0;  // Check if the high-order bit is set
             bool32_t IsDown = (LParam & (1 << 31)) == 0; // Check if the low-order bit is clear
             if (WasDown != IsDown) {
@@ -415,8 +401,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         );
 
         if(Window) {
-            HDC DeviceContext = GetDC(Window);
-
+          
             //Sound
             // Audio configuration variables
 
