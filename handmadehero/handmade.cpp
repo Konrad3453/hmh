@@ -67,11 +67,20 @@ internal void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_o
        
     } else {
         
+   
+    if (Input0->Up.EndedDown) {
+            GameState->YOffset -= 10;
+        }
+        if (Input0->Down.EndedDown) {
+            GameState->YOffset += 10;
+        }
+        if (Input0->Left.EndedDown) {
+            GameState->XOffset -= 10;
+        }
+        if (Input0->Right.EndedDown) {
+            GameState->XOffset += 10;
+        }
     }
-    if (Input0->Down.EndedDown) {
-        GameState->YOffset += 1;
-    }
-
   
 
     GameOutputSound(SoundBuffer, GameState->ToneHz);
