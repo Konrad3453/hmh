@@ -83,7 +83,7 @@ struct game_controller_input {
 };
 struct game_input {
     // clock here
-    game_controller_input Controllers[4];
+    game_controller_input Controllers[5];
 };
 
 struct game_memory {

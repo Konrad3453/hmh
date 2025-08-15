@@ -92,8 +92,9 @@ internal void Win32ProcessXInputDigitalButton(DWORD XInputButtonState, game_butt
         NewState->HalfTransitionCount = (OldState->EndedDown == NewState->EndedDown) ? 0 : 1;
 }
 internal void Win32ProcessKeyboardMessage(game_button_state *NewState, bool32_t IsDown) {
-        NewState->EndedDown = IsDown;
-        ++NewState->HalfTransitionCount;
+    Assert(NewState->EndedDown != IsDown);
+    NewState->EndedDown = IsDown;
+    ++NewState->HalfTransitionCount;
 }
 
 internal void Win32MessageLoop(game_controller_input *KeyboardController){
@@ -149,6 +150,17 @@ internal void Win32MessageLoop(game_controller_input *KeyboardController){
         
     }
 }
+
+internal float Win32ProcessXInputStickValue(short Value, short DeadYoneThreshold ){
+    float Result = 0;
+    if(Value < -DeadYoneThreshold) {
+        Result = (float)Value / 32768.0f;
+    } else if (Value > DeadYoneThreshold) {
+        Result = (float)Value / 32767.0f;
+    }
+    return Result;
+}
+
 // support for get and set states
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 #define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
@@ -481,19 +493,24 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         
             // Main game loop
                 while(Running) {
-                    game_controller_input *KeyboardController = &NewInput->Controllers[0];
+                    game_controller_input *OldKeyboardController = &OldInput->Controllers[0];
+                    game_controller_input *NewKeyboardController = &NewInput->Controllers[0];
                     game_controller_input ZeroController = {};
-                    *KeyboardController = ZeroController;
+                    *NewKeyboardController = ZeroController;
+                    for(int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ++ButtonIndex){
+                        NewKeyboardController->Buttons[ButtonIndex].EndedDown = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+                    }
 
-                    Win32MessageLoop(KeyboardController);
+                    Win32MessageLoop(NewKeyboardController);
                     // Poll all connected game controllers (start from index 1, keyboard uses index 0)
-                    DWORD MaxControllerCount = XUSER_MAX_COUNT;
+                    DWORD MaxControllerCount = 1+XUSER_MAX_COUNT;
                     if(MaxControllerCount > ArrayCount(NewInput->Controllers)) {
                         MaxControllerCount = ArrayCount(NewInput->Controllers);
                     }
-                    for(DWORD ControllerIndex = 1; ControllerIndex < MaxControllerCount; ++ControllerIndex) {
-                        game_controller_input *OldController = &OldInput->Controllers[ControllerIndex];
-                        game_controller_input *NewController = &NewInput->Controllers[ControllerIndex];
+                    for(DWORD ControllerIndex = 0; ControllerIndex < MaxControllerCount; ++ControllerIndex) {
+                        DWORD OurControllerIndex = ControllerIndex+1;
+                        game_controller_input *OldController = &OldInput->Controllers[OurControllerIndex];
+                        game_controller_input *NewController = &NewInput->Controllers[OurControllerIndex];
                         XINPUT_STATE ControllerState;
                         if (XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS) {
                             // Controller is connected - read input state
@@ -506,19 +523,14 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                             NewController->Analog = true;
                             NewController->StartX = OldController->EndX;
                             NewController->StartY = OldController->EndY;
-                            float X;
-                            if(Pad->sThumbLX < 0) {
-                                X = (float)Pad->sThumbLX / 32768.0f;
-                            } else {
-                                X = (float)Pad->sThumbLX / 32767.0f;
-                            }
+
+
+                            float X = Win32ProcessXInputStickValue(Pad->sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                            
+                        
+                           
                             NewController->MinX = OldController->MaxX = NewController->EndX = X;
-                            float Y;
-                            if(Pad->sThumbLY < 0) {
-                                Y = (float)Pad->sThumbLY / 32768.0f;
-                            } else {
-                                Y = (float)Pad->sThumbLY / 32767.0f;
-                            }
+                            float Y = Win32ProcessXInputStickValue(Pad->sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
                             NewController->MinY = OldController->MaxY = NewController->EndY = Y;
 
 
