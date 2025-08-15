@@ -59,28 +59,24 @@ internal void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_o
         Memory->IsInitialized = true;
     }
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex) {
-        game_controller_input *Input0 = &Input->Controllers[ControllerIndex];
-        if(Input0->Analog){
-            GameState->XOffset += (int)(4.0f * Input0->EndX);
-            GameState->YOffset -= (int)(4.0f * Input0->EndY);
-            GameState->ToneHz = 256 + (int)(128.0f*(Input0->EndY));
+        game_controller_input *Controller = &Input->Controllers[ControllerIndex];
+        if(Controller->Analog){
+            GameState->XOffset += (int)(4.0f * Controller->StickAverageX);
+            GameState->YOffset -= (int)(4.0f * Controller->StickAverageY);
+            GameState->ToneHz = 256 + (int)(128.0f*(Controller->StickAverageY));
         
         } else { 
-
+            if (Controller->MoveLeft.EndedDown){
+                GameState->XOffset -= 1;
+            } 
+            if (Controller->MoveRight.EndedDown){
+                GameState->XOffset += 1;
+            } 
         }
             
-        if (Input0->Up.EndedDown) {
-                GameState->YOffset -= 10;
-            }
-            if (Input0->Down.EndedDown) {
-                GameState->YOffset += 10;
-            }
-            if (Input0->Left.EndedDown) {
-                GameState->XOffset -= 10;
-            }
-            if (Input0->Right.EndedDown) {
-                GameState->XOffset += 10;
-            }
+        if (Controller->ActionDown.EndedDown) {
+                GameState->YOffset += 1;
+        }
         
     }
 
