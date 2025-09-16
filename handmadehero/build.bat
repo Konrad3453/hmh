@@ -5,7 +5,7 @@ set start_time=%TIME%
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 set CommonCompilerFlags=-MT -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -DHANDMADE_INTERNAL=1 -DHANDMADE_SLOW=1 -DHANDMADE_WIN32=1 -FC -Zi
-set CommonLinkerFlags=-opt:ref user32.lib gdi32.lib 
+set CommonLinkerFlags=-opt:ref user32.lib gdi32.lib winmm.lib
 
 
 if not exist ..\build mkdir ..\build
@@ -14,7 +14,7 @@ pushd ..\build
 :: cl  %CommonCompilerFlags% ..\handmadehero\handmadehero.cpp /link -subsystem:windows,5.1 %CommonLinkerFlags%
 
 :: 64bit build
-cl %CommonCompilerFlags% ..\handmadehero\handmadehero.cpp /link %CommonLinkerFlags%
+cl %CommonCompilerFlags% ..\handmadehero\win32_handmade.cpp /link %CommonLinkerFlags%
 popd
 
 echo Build started at %start_time%

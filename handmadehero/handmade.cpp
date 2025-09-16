@@ -40,6 +40,7 @@ internal void RenderWeirdGradient(game_offscreen_buffer *Buffer, int XOffset, in
 
 internal void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer, 
     game_sound_output_buffer *SoundBuffer) {
+    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) == (ArrayCount(Input->Controllers[0].Buttons)));
     Assert(Memory->PermanentStorageSize >= sizeof(game_state));
     
     game_state *GameState = (game_state *)Memory->PermanentStorage;
@@ -49,7 +50,7 @@ internal void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_o
 
         debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
         if(File.Contents) {
-            //DEBUGPlatformWriteEntireFile("X:\\hmh\\handmadehero\\data\\test.out", File.ContentSize, File.Contents);
+            //EBUGPlatformWriteEntireFile("C:\\workspace\\hmh\\handmadehero\\data\\ttest.out", File.ContentSize, File.Contents);
             DEBUGPlatformWriteEntireFile("test.out", File.ContentSize, File.Contents);
             DEBUGPlatformFreeFileMemory(File.Contents);
         }
@@ -59,7 +60,7 @@ internal void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_o
         Memory->IsInitialized = true;
     }
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex) {
-        game_controller_input *Controller = &Input->Controllers[ControllerIndex];
+        game_controller_input *Controller = GetController(Input, ControllerIndex);
         if(Controller->Analog){
             GameState->XOffset += (int)(4.0f * Controller->StickAverageX);
             GameState->YOffset -= (int)(4.0f * Controller->StickAverageY);

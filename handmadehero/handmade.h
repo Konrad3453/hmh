@@ -55,13 +55,14 @@ struct game_button_state {
     int HalfTransitionCount;
 };
 struct game_controller_input {
+    bool32_t IsConnected;
     bool32_t Analog;
 
     float StickAverageX;
     float StickAverageY;
 
     union {
-       game_button_state Buttons[10]; 
+       game_button_state Buttons[12]; 
        struct { 
             game_button_state MoveUp;
             game_button_state MoveDown;
@@ -76,8 +77,12 @@ struct game_controller_input {
             game_button_state LeftShoulder;
             game_button_state RightShoulder;
 
-            game_button_state Start;
             game_button_state Back;
+            game_button_state Start;
+
+
+            // all buttons must be added above this line
+            game_button_state Terminator;
         };
     };
 };
@@ -85,6 +90,11 @@ struct game_input {
     // clock here
     game_controller_input Controllers[5];
 };
+inline game_controller_input *GetController(game_input *Input, int unsigned ControllerIndex){
+    Assert(ControllerIndex < ArrayCount(Input->Controllers));
+    game_controller_input *Result = &Input->Controllers[ControllerIndex];
+    return Result;
+}
 
 struct game_memory {
     bool32_t   IsInitialized;
